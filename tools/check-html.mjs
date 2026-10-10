@@ -48,7 +48,7 @@ ok("Âncoras internas resolvem");
 for (const [, p] of html.matchAll(/(?:src|href)="((?:assets|styles|script)[^"#?]*)"/g)) {
   if (!existsSync(resolve(root, p))) fail(`Arquivo ausente: ${p}`);
 }
-for (const f of ["styles.css", "script.js", "assets/js/reveal-image.js", "assets/logo-ronda-charrua-128.png", "robots.txt", "sitemap.xml"]) {
+for (const f of ["styles.css", "script.js", "assets/js/reveal-image.js", "assets/logo-ronda-charrua-192.png", "robots.txt", "sitemap.xml"]) {
   if (!existsSync(resolve(root, f))) fail(`Arquivo ausente: ${f}`);
 }
 ok("Arquivos locais presentes");
