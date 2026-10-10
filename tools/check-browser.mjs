@@ -28,7 +28,7 @@ const ok = (m) => console.log("✓", m);
 async function open(width, height, opts = {}) {
   const ctx = await browser.newContext({ viewport: { width, height }, reducedMotion: opts.reduced ? "reduce" : "no-preference", hasTouch: width < 900 });
   await ctx.route(/^https:\/\/(media\.ofarroupilha\.com\.br|cdn-images-site-arauto\.portalarauto\.com\.br)\//, (r) => r.fulfill({ contentType: "image/svg+xml", body: svg(1024, 683) }));
-  await ctx.route(/fonts\.(googleapis|gstatic)\.com|google\.com\/maps/, (r) => r.abort());
+  await ctx.route(/fonts\.(googleapis|gstatic)\.com|google\.com\/maps|youtube-nocookie\.com/, (r) => r.abort());
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -51,7 +51,7 @@ for (const [w, h] of viewports) {
   if (overflow > 0) fail(`${w}px: scroll horizontal (${overflow}px)`); else ok(`${w}px: sem scroll horizontal`);
   const cut = await page.evaluate(() => [...document.querySelectorAll("body *")].filter((el) => {
     const r = el.getBoundingClientRect();
-    return r.width > 0 && (r.right > document.documentElement.clientWidth + 1 || r.left < -1) && !el.closest(".hero-media-wrap,.menu:not(.open),.skip-link,.gallery figure,.hero-photo-frame,.reveal-image-frame,.sr-only");
+    return r.width > 0 && (r.right > document.documentElement.clientWidth + 1 || r.left < -1) && !el.closest(".hero-media,.menu:not(.open),.skip-link,.gallery figure,.reveal-image-frame,.sr-only");
   }).map((el) => el.className || el.tagName).slice(0, 5));
   if (cut.length) fail(`${w}px: elementos fora da tela: ${cut}`);
   const mounted = await page.evaluate(() => document.querySelectorAll(".reveal-image-frame img").length);
@@ -115,6 +115,17 @@ for (const [w, h] of viewports) {
   await ctx.close();
 }
 
+// Vídeo de fundo: iframe do YouTube com o vídeo da Adulta, sem som
+{
+  const { ctx, page } = await open(1440, 900);
+  await page.waitForSelector(".bg-video iframe", { state: "attached", timeout: 6000 }).catch(() => {});
+  const src = await page.evaluate(() => document.querySelector(".bg-video iframe")?.src || "");
+  if (!src.includes("youtube-nocookie.com/embed/-3lMd-e6sMI") || !src.includes("mute=1")) fail(`vídeo de fundo não carregou: ${src}`); else ok("vídeo de fundo da Adulta carrega sem som");
+  const hidden = await page.evaluate(() => getComputedStyle(document.querySelector(".bg-video")).opacity);
+  if (hidden !== "0") fail("vídeo aparece antes de o player confirmar que está tocando"); else ok("foto fica visível até o vídeo tocar");
+  await ctx.close();
+}
+
 // Galeria: botões avançam o carrossel
 {
   const { ctx, page } = await open(1440, 900);
@@ -132,12 +143,14 @@ for (const [w, h] of viewports) {
 // Reduced motion
 {
   const { ctx, page, errors } = await open(390, 844, { reduced: true });
+  await page.waitForTimeout(3500);
   const r = await page.evaluate(() => ({
     reveal: getComputedStyle(document.querySelector(".reveal")).opacity,
     words: [...document.querySelectorAll(".motto-text span")].every((s) => getComputedStyle(s).opacity === "1"),
     sticky: getComputedStyle(document.querySelector(".motto")).position,
+    video: !!document.querySelector(".bg-video iframe"),
   }));
-  if (r.reveal !== "1" || !r.words || r.sticky !== "static") fail(`reduced motion não respeitado: ${JSON.stringify(r)}`); else ok("prefers-reduced-motion: conteúdo visível, sem sticky/parallax");
+  if (r.reveal !== "1" || !r.words || r.sticky !== "static" || r.video) fail(`reduced motion não respeitado: ${JSON.stringify(r)}`); else ok("prefers-reduced-motion: conteúdo visível, sem sticky/parallax");
   if (errors.length) fail(`reduced motion: erros ${errors}`);
   await ctx.close();
 }

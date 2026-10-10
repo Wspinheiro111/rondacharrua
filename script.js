@@ -144,6 +144,42 @@ if ('IntersectionObserver' in window && !reduceMotion) {
   document.querySelectorAll('[data-count]').forEach((el) => statsObserver.observe(el));
 }
 
+/* Vídeo de fundo: Invernada Adulta dançando, via YouTube sem som.
+   Só carrega depois da página pronta, nunca com movimento reduzido ou economia
+   de dados, e pausa fora da tela. Se o YouTube falhar, a foto continua no lugar. */
+const bgVideos = document.querySelectorAll('[data-yt]');
+const connection = navigator.connection;
+const lowData = connection && (connection.saveData || /(^|-)2g$/.test(connection.effectiveType || ''));
+if (bgVideos.length && !reduceMotion && !lowData) {
+  const startVideos = () => bgVideos.forEach((box) => {
+    const id = box.dataset.yt;
+    const frame = document.createElement('iframe');
+    const params = new URLSearchParams({ autoplay: 1, mute: 1, loop: 1, playlist: id, controls: 0, playsinline: 1, rel: 0, disablekb: 1, iv_load_policy: 3, fs: 0, enablejsapi: 1, origin: location.origin });
+    frame.src = `https://www.youtube-nocookie.com/embed/${id}?${params}`;
+    frame.title = box.dataset.ytTitle || 'Vídeo de fundo';
+    frame.allow = 'autoplay; encrypted-media; picture-in-picture';
+    frame.tabIndex = -1;
+    frame.setAttribute('aria-hidden', 'true');
+    const ytOrigin = new URL(frame.src).origin;
+    const command = (func) => frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args: [] }), ytOrigin);
+    // O vídeo só aparece quando o player avisa que está tocando.
+    window.addEventListener('message', (event) => {
+      if (event.origin !== ytOrigin || event.source !== frame.contentWindow) return;
+      let data;
+      try { data = JSON.parse(event.data); } catch { return; }
+      if (data?.info?.playerState === 1) box.classList.add('is-on');
+    });
+    frame.addEventListener('load', () => frame.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id, channel: 'widget' }), ytOrigin), { once: true });
+    box.append(frame);
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(([entry]) => command(entry.isIntersecting ? 'playVideo' : 'pauseVideo')).observe(box);
+    }
+  });
+  const later = () => ('requestIdleCallback' in window ? requestIdleCallback(startVideos, { timeout: 3000 }) : setTimeout(startVideos, 1500));
+  if (document.readyState === 'complete') later();
+  else window.addEventListener('load', later, { once: true });
+}
+
 /* Galeria: botões rolam o carrossel (scroll-snap) */
 const track = document.getElementById('track');
 document.querySelectorAll('[data-slide]').forEach((button) => {
