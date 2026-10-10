@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ctg-ronda-charrua.vercel.app/sitemap.xml
