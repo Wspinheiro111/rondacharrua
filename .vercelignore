@@ -1,0 +1,4 @@
+# Fontes e ferramentas de desenvolvimento não são publicadas
+tools/
+src/
+*.md
