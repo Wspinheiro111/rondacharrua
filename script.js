@@ -194,7 +194,9 @@ if (form && status) {
     const get = (key) => String(data.get(key) || '').trim();
     const text = `Olá! Vim pelo site do CTG Ronda Charrua.\n\nNome: ${get('nome')}\nTelefone: ${get('telefone')}\nE-mail: ${get('email') || 'não informado'}\nAssunto: ${get('assunto')}\n\nMensagem: ${get('mensagem')}`;
     const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
-    const opened = window.open(url, '_blank', 'noopener');
+    // Sem a feature 'noopener': ela faz window.open devolver null mesmo com a aba aberta.
+    const opened = window.open(url, '_blank');
+    if (opened) opened.opener = null;
 
     status.textContent = '';
     if (opened === null) {
