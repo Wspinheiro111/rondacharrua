@@ -27,7 +27,7 @@ const ok = (m) => console.log("✓", m);
 
 async function open(width, height, opts = {}) {
   const ctx = await browser.newContext({ viewport: { width, height }, reducedMotion: opts.reduced ? "reduce" : "no-preference", hasTouch: width < 900 });
-  await ctx.route(/^https:\/\/(media\.ofarroupilha|cdn-images-site-arauto)/, (r) => r.fulfill({ contentType: "image/svg+xml", body: svg(1024, 683) }));
+  await ctx.route(/^https:\/\/(media\.ofarroupilha\.com\.br|cdn-images-site-arauto\.portalarauto\.com\.br)\//, (r) => r.fulfill({ contentType: "image/svg+xml", body: svg(1024, 683) }));
   await ctx.route(/fonts\.(googleapis|gstatic)\.com|google\.com\/maps/, (r) => r.abort());
   const page = await ctx.newPage();
   const errors = [];
