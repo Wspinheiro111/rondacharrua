@@ -154,6 +154,7 @@ em{font-style:italic}
 .gallery figure:hover{box-shadow:0 28px 70px rgba(0,0,0,.35)}
 .gallery figure:hover .reveal-image-mount img{transform:translate3d(0,var(--gallery-y,0px),0) scale(1.15);filter:saturate(1.12) contrast(1.03)}
 .gallery figcaption{position:absolute;z-index:2;left:14px;right:14px;bottom:12px;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.58);backdrop-filter:blur(8px);font-size:.72rem;color:#fff}
+.gallery figcaption{display:flex;flex-direction:column;gap:2px}.gallery .cap-motto{font-family:"Cormorant Garamond",Georgia,serif;font-style:italic;font-weight:700;font-size:1.05rem;line-height:1.2;color:var(--gold-soft)}.gallery .cap-credit{font-size:.68rem;color:rgba(255,255,255,.82)}
 .events-strip{max-width:1180px;margin:34px auto 0;display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid rgba(255,255,255,.18)}
 .events-strip>div{padding:28px 28px 0 0}
 .events-strip h3{font-family:"Cormorant Garamond",Georgia,serif;font-size:1.7rem;margin:0 0 8px}
