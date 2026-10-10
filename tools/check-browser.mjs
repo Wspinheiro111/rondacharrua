@@ -51,12 +51,12 @@ for (const [w, h] of viewports) {
   if (overflow > 0) fail(`${w}px: scroll horizontal (${overflow}px)`); else ok(`${w}px: sem scroll horizontal`);
   const cut = await page.evaluate(() => [...document.querySelectorAll("body *")].filter((el) => {
     const r = el.getBoundingClientRect();
-    return r.width > 0 && (r.right > document.documentElement.clientWidth + 1 || r.left < -1) && !el.closest(".hero-media-wrap,.menu:not(.open),.skip-link,.gallery figure,.reveal-image-frame,.sr-only");
+    return r.width > 0 && (r.right > document.documentElement.clientWidth + 1 || r.left < -1) && !el.closest(".hero-media-wrap,.menu:not(.open),.skip-link,.gallery figure,.hero-photo-frame,.reveal-image-frame,.sr-only");
   }).map((el) => el.className || el.tagName).slice(0, 5));
   if (cut.length) fail(`${w}px: elementos fora da tela: ${cut}`);
   const mounted = await page.evaluate(() => document.querySelectorAll(".reveal-image-frame img").length);
   if (mounted !== 4) fail(`${w}px: RevealImage montou ${mounted}/4 imagens`);
-  const hidden = await page.evaluate(() => [...document.querySelectorAll(".reveal-image-frame")].filter((f) => getComputedStyle(f).clipPath.startsWith("inset(100%")).length);
+  const hidden = await page.evaluate(() => [...document.querySelectorAll(".reveal-image-frame")].filter((f) => !f.closest(".slide:not(:first-child)") && getComputedStyle(f).clipPath.startsWith("inset(100%")).length);
   if (hidden) fail(`${w}px: ${hidden} imagem(ns) do RevealImage ficaram recortadas (invisíveis)`);
   if (errors.length) fail(`${w}px: erros de console: ${errors.join(" | ")}`);
   if (w < 700) {
@@ -108,11 +108,24 @@ for (const [w, h] of viewports) {
 // Lema: palavras acendem com o scroll
 {
   const { ctx, page } = await open(1440, 900);
-  const top = await page.evaluate(() => document.querySelector(".motto").offsetTop);
-  await page.evaluate((y) => window.scrollTo({ top: y + 1200, behavior: 'instant' }), top);
+  await page.evaluate(() => { const r = document.querySelector(".motto").getBoundingClientRect(); window.scrollTo({ top: window.scrollY + r.top - 200, behavior: 'instant' }); });
   await page.waitForTimeout(200);
   const lit = await page.locator(".motto-text span.lit").count();
   if (lit < 3) fail(`lema: apenas ${lit} palavras acesas no meio da seção`); else ok(`lema: ${lit}/7 palavras acesas no scroll`);
+  await ctx.close();
+}
+
+// Galeria: botões avançam o carrossel
+{
+  const { ctx, page } = await open(1440, 900);
+  await page.locator("#galeria").scrollIntoViewIfNeeded();
+  const before = await page.evaluate(() => document.getElementById("track").scrollLeft);
+  await page.click('[data-slide="1"]');
+  await page.waitForTimeout(900);
+  const after = await page.evaluate(() => document.getElementById("track").scrollLeft);
+  if (after <= before) fail("galeria: botão próxima não avançou"); else ok("galeria: botões rolam o carrossel");
+  const second = await page.evaluate(() => getComputedStyle(document.querySelectorAll("#track .reveal-image-frame")[1]).clipPath);
+  if (second.startsWith("inset(100%")) fail("galeria: 2ª foto não foi revelada após avançar"); else ok("galeria: foto seguinte é revelada ao avançar");
   await ctx.close();
 }
 
@@ -122,7 +135,7 @@ for (const [w, h] of viewports) {
   const r = await page.evaluate(() => ({
     reveal: getComputedStyle(document.querySelector(".reveal")).opacity,
     words: [...document.querySelectorAll(".motto-text span")].every((s) => getComputedStyle(s).opacity === "1"),
-    sticky: getComputedStyle(document.querySelector(".motto-sticky")).position,
+    sticky: getComputedStyle(document.querySelector(".motto")).position,
   }));
   if (r.reveal !== "1" || !r.words || r.sticky !== "static") fail(`reduced motion não respeitado: ${JSON.stringify(r)}`); else ok("prefers-reduced-motion: conteúdo visível, sem sticky/parallax");
   if (errors.length) fail(`reduced motion: erros ${errors}`);

@@ -38,19 +38,11 @@ function updateScrollEffects() {
     hero.style.setProperty('--hero-copy-opacity', String(clamp(1 - progress * 1.05, 0.18, 1)));
   }
 
-  document.querySelectorAll('.gallery figure').forEach((figure) => {
-    const rect = figure.getBoundingClientRect();
-    if (rect.bottom < -120 || rect.top > vh + 120) return;
-    const progress = clamp((vh - rect.top) / (vh + rect.height));
-    figure.style.setProperty('--gallery-y', `${((progress - 0.5) * 36).toFixed(1)}px`);
-  });
-
-  // Lema: acende uma palavra por vez conforme a seção sticky avança
+  // Lema: acende uma palavra por vez conforme o cartão sobe na tela
   if (motto && mottoWords.length) {
     const rect = motto.getBoundingClientRect();
-    const total = Math.max(rect.height - vh, 1);
-    const progress = clamp(-rect.top / total);
-    const lit = Math.round(clamp(progress * 1.25) * mottoWords.length);
+    const progress = clamp((vh * 0.9 - rect.top) / (vh * 0.55));
+    const lit = Math.round(progress * mottoWords.length);
     mottoWords.forEach((word, index) => word.classList.toggle('lit', index < lit));
   }
 }
@@ -151,6 +143,20 @@ if ('IntersectionObserver' in window && !reduceMotion) {
   }, { threshold: 0.7 });
   document.querySelectorAll('[data-count]').forEach((el) => statsObserver.observe(el));
 }
+
+/* Galeria: botões rolam o carrossel (scroll-snap) */
+const track = document.getElementById('track');
+document.querySelectorAll('[data-slide]').forEach((button) => {
+  button.addEventListener('click', () => {
+    if (!track) return;
+    track.scrollBy({ left: Number(button.dataset.slide) * track.clientWidth, behavior: reduceMotion ? 'auto' : 'smooth' });
+  });
+});
+track?.addEventListener('keydown', (event) => {
+  if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+  event.preventDefault();
+  track.scrollBy({ left: (event.key === 'ArrowRight' ? 1 : -1) * track.clientWidth, behavior: reduceMotion ? 'auto' : 'smooth' });
+});
 
 /* Formulário: valida, abre o WhatsApp e oferece link caso o navegador bloqueie a nova aba */
 const form = document.querySelector('#contact-form');
