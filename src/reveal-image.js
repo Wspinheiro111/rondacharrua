@@ -15,7 +15,10 @@ function RevealImage({ src, alt, width, height, sizes, loading = "lazy", thresho
       return undefined;
     }
 
-    const element = containerRef.current;
+    // Observa o contêiner (mount), não o frame: o frame começa com
+    // clip-path inset(100%) e um alvo totalmente recortado nunca é
+    // considerado visível pelo IntersectionObserver.
+    const element = containerRef.current?.parentElement;
     if (!element || isVisible) return undefined;
 
     const observer = new IntersectionObserver(([entry]) => {

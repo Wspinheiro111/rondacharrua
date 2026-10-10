@@ -56,6 +56,8 @@ for (const [w, h] of viewports) {
   if (cut.length) fail(`${w}px: elementos fora da tela: ${cut}`);
   const mounted = await page.evaluate(() => document.querySelectorAll(".reveal-image-frame img").length);
   if (mounted !== 4) fail(`${w}px: RevealImage montou ${mounted}/4 imagens`);
+  const hidden = await page.evaluate(() => [...document.querySelectorAll(".reveal-image-frame")].filter((f) => getComputedStyle(f).clipPath.startsWith("inset(100%")).length);
+  if (hidden) fail(`${w}px: ${hidden} imagem(ns) do RevealImage ficaram recortadas (invisíveis)`);
   if (errors.length) fail(`${w}px: erros de console: ${errors.join(" | ")}`);
   if (w < 700) {
     const btn = await page.evaluate(() => { const r = document.querySelector(".whatsapp-float").getBoundingClientRect(); return { r: r.right, b: r.bottom }; });
