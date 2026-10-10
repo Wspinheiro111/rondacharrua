@@ -143,3 +143,22 @@ form?.addEventListener('submit', (event) => {
   status.textContent = 'Abrindo o WhatsApp com sua mensagem pronta…';
   window.open(url, '_blank', 'noopener');
 });
+
+// RevealImage (React + Framer Motion) é carregado sob demanda, pouco antes
+// da primeira imagem entrar na tela, para não pesar no carregamento inicial.
+const revealMounts = document.querySelectorAll('[data-reveal-image]');
+if (revealMounts.length && 'IntersectionObserver' in window) {
+  let revealLoaded = false;
+  const loadRevealImages = () => {
+    if (revealLoaded) return;
+    revealLoaded = true;
+    revealObserver.disconnect();
+    import('./assets/js/reveal-image.js').catch(() => {
+      // Sem o módulo, as imagens estáticas de fallback continuam visíveis.
+    });
+  };
+  const revealObserver = new IntersectionObserver((entries) => {
+    if (entries.some((entry) => entry.isIntersecting)) loadRevealImages();
+  }, { rootMargin: '900px 0px' });
+  revealMounts.forEach((el) => revealObserver.observe(el));
+}

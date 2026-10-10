@@ -1,8 +1,10 @@
-import React, { useEffect, useRef, useState } from "https://esm.sh/react@19.1.1";
-import { createRoot } from "https://esm.sh/react-dom@19.1.1/client?deps=react@19.1.1";
-import { motion, useReducedMotion } from "https://esm.sh/framer-motion@13.4.5?deps=react@19.1.1,react-dom@19.1.1";
+import React, { useEffect, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { LazyMotion, domAnimation, m, useReducedMotion } from "framer-motion";
 
-function RevealImage({ src, alt, loading = "lazy", threshold = 0.2, rootMargin = "0px 0px -8% 0px" }) {
+// Fonte do componente RevealImage. O arquivo publicado é gerado por
+// `npm run build` em tools/ e fica em assets/js/reveal-image.js.
+function RevealImage({ src, alt, width, height, sizes, loading = "lazy", threshold = 0.2, rootMargin = "0px 0px -8% 0px" }) {
   const containerRef = useRef(null);
   const [isVisible, setIsVisible] = useState(false);
   const reduceMotion = useReducedMotion();
@@ -30,7 +32,7 @@ function RevealImage({ src, alt, loading = "lazy", threshold = 0.2, rootMargin =
   const clipPath = revealed ? "inset(0% 0 0 0)" : "inset(100% 0 0 0)";
 
   return React.createElement(
-    motion.div,
+    m.div,
     {
       ref: containerRef,
       className: "reveal-image-frame",
@@ -43,7 +45,7 @@ function RevealImage({ src, alt, loading = "lazy", threshold = 0.2, rootMargin =
         willChange: reduceMotion ? undefined : "clip-path",
       },
     },
-    React.createElement("img", { src, alt, loading, decoding: "async" }),
+    React.createElement("img", { src, alt, width, height, sizes, loading, decoding: "async" }),
   );
 }
 
@@ -55,13 +57,18 @@ function mountRevealImages() {
     const props = {
       src: mount.dataset.src || fallback?.currentSrc || fallback?.src || "",
       alt: mount.dataset.alt || fallback?.alt || "",
+      width: fallback?.getAttribute("width") || undefined,
+      height: fallback?.getAttribute("height") || undefined,
       loading: mount.dataset.loading || fallback?.loading || "lazy",
     };
 
     if (!props.src) return;
 
     mount.replaceChildren();
-    createRoot(mount).render(React.createElement(RevealImage, props));
+    mount.classList.add("is-mounted");
+    createRoot(mount).render(
+      React.createElement(LazyMotion, { features: domAnimation, strict: true }, React.createElement(RevealImage, props)),
+    );
   });
 }
 
