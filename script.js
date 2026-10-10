@@ -1,88 +1,127 @@
 document.documentElement.classList.add('has-js');
 
+const WHATSAPP_NUMBER = '5554996893919';
 const header = document.querySelector('.site-header');
 const toggle = document.querySelector('.menu-toggle');
 const menu = document.querySelector('.menu');
 const hero = document.querySelector('.hero');
-const heroMedia = document.querySelector('.hero-media');
-const heroCopy = document.querySelector('.hero-copy');
+const motto = document.querySelector('.motto');
+const mottoWords = [...document.querySelectorAll('[data-highlight] span')];
+const whatsappFloat = document.querySelector('.whatsapp-float');
+const footer = document.querySelector('.site-footer');
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const finePointer = window.matchMedia('(pointer: fine)').matches;
 
 const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
 
+/* Efeitos ligados ao scroll — um único rAF por frame */
 function updateScrollEffects() {
   const scrollY = window.scrollY;
+  const vh = window.innerHeight;
   header?.classList.toggle('scrolled', scrollY > 30);
 
-  if (!reduceMotion && hero) {
-    const heroHeight = Math.max(hero.offsetHeight, 1);
-    const progress = clamp(scrollY / heroHeight);
-    hero.style.setProperty('--hero-progress', progress.toFixed(3));
-    hero.style.setProperty('--hero-scale', (1.05 + progress * 0.12).toFixed(3));
-    hero.style.setProperty('--hero-scroll-y', `${progress * 74}px`);
-    hero.style.setProperty('--hero-copy-y', `${progress * -34}px`);
-    hero.style.setProperty('--hero-copy-scale', (1 - progress * 0.025).toFixed(3));
-    hero.style.setProperty('--hero-copy-opacity', String(clamp(1 - progress * 1.05, .18, 1)));
+  const docHeight = document.documentElement.scrollHeight - vh;
+  document.documentElement.style.setProperty('--page-progress', docHeight > 0 ? clamp(scrollY / docHeight).toFixed(4) : '0');
+
+  if (whatsappFloat && footer) {
+    whatsappFloat.classList.toggle('near-footer', footer.getBoundingClientRect().top < vh - 40);
   }
 
-  if (!reduceMotion) {
-    const vh = window.innerHeight;
-    document.querySelectorAll('.gallery figure').forEach((figure) => {
-      const rect = figure.getBoundingClientRect();
-      if (rect.bottom < -120 || rect.top > vh + 120) return;
-      const progress = clamp((vh - rect.top) / (vh + rect.height));
-      const y = (progress - .5) * 44;
-      figure.style.setProperty('--gallery-y', `${y.toFixed(1)}px`);
-    });
+  if (reduceMotion) return;
 
-    const activityImage = document.querySelector('.activity-image');
-    if (activityImage) {
-      const rect = activityImage.getBoundingClientRect();
-      const progress = clamp((vh - rect.top) / (vh + rect.height));
-      activityImage.style.setProperty('--activity-y', `${((progress - .5) * 26).toFixed(1)}px`);
-    }
+  if (hero) {
+    const progress = clamp(scrollY / Math.max(hero.offsetHeight, 1));
+    hero.style.setProperty('--hero-progress', progress.toFixed(3));
+    hero.style.setProperty('--hero-scale', (1.05 + progress * 0.1).toFixed(3));
+    hero.style.setProperty('--hero-scroll-y', `${(progress * 70).toFixed(1)}px`);
+    hero.style.setProperty('--hero-copy-y', `${(progress * -34).toFixed(1)}px`);
+    hero.style.setProperty('--hero-copy-opacity', String(clamp(1 - progress * 1.05, 0.18, 1)));
+  }
+
+  document.querySelectorAll('.gallery figure').forEach((figure) => {
+    const rect = figure.getBoundingClientRect();
+    if (rect.bottom < -120 || rect.top > vh + 120) return;
+    const progress = clamp((vh - rect.top) / (vh + rect.height));
+    figure.style.setProperty('--gallery-y', `${((progress - 0.5) * 36).toFixed(1)}px`);
+  });
+
+  // Lema: acende uma palavra por vez conforme a seção sticky avança
+  if (motto && mottoWords.length) {
+    const rect = motto.getBoundingClientRect();
+    const total = Math.max(rect.height - vh, 1);
+    const progress = clamp(-rect.top / total);
+    const lit = Math.round(clamp(progress * 1.25) * mottoWords.length);
+    mottoWords.forEach((word, index) => word.classList.toggle('lit', index < lit));
   }
 }
 
 let scrollTicking = false;
-window.addEventListener('scroll', () => {
-  if (!scrollTicking) {
-    requestAnimationFrame(() => {
-      updateScrollEffects();
-      scrollTicking = false;
-    });
-    scrollTicking = true;
-  }
-}, { passive: true });
-window.addEventListener('resize', updateScrollEffects, { passive: true });
+const requestUpdate = () => {
+  if (scrollTicking) return;
+  scrollTicking = true;
+  requestAnimationFrame(() => {
+    updateScrollEffects();
+    scrollTicking = false;
+  });
+};
+window.addEventListener('scroll', requestUpdate, { passive: true });
+window.addEventListener('resize', requestUpdate, { passive: true });
 updateScrollEffects();
 
-toggle?.addEventListener('click', () => {
-  const open = menu.classList.toggle('open');
+/* Menu mobile: fecha com Esc, clique fora e ao escolher um link */
+function setMenu(open, { returnFocus = false } = {}) {
+  if (!menu || !toggle) return;
+  menu.classList.toggle('open', open);
   toggle.setAttribute('aria-expanded', String(open));
+  toggle.setAttribute('aria-label', open ? 'Fechar menu' : 'Abrir menu');
+  if (!open && returnFocus) toggle.focus();
+}
+toggle?.addEventListener('click', () => setMenu(!menu.classList.contains('open')));
+menu?.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => setMenu(false)));
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && menu?.classList.contains('open')) setMenu(false, { returnFocus: true });
 });
-menu?.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => {
-  menu.classList.remove('open');
-  toggle?.setAttribute('aria-expanded', 'false');
-}));
+document.addEventListener('click', (event) => {
+  if (menu?.classList.contains('open') && !menu.contains(event.target) && !toggle.contains(event.target)) setMenu(false);
+});
 
-const observer = new IntersectionObserver((entries) => {
-  entries.forEach((entry) => {
-    if (entry.isIntersecting) {
+/* Link ativo na navegação conforme a seção visível */
+const navLinks = [...document.querySelectorAll('.menu a[href^="#"]')];
+const sectionById = new Map(navLinks.map((a) => [a.getAttribute('href').slice(1), document.getElementById(a.getAttribute('href').slice(1))]));
+if ('IntersectionObserver' in window) {
+  const spy = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      navLinks.forEach((a) => {
+        const active = a.getAttribute('href') === `#${entry.target.id}`;
+        a.classList.toggle('active', active);
+        if (active) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current');
+      });
+    });
+  }, { rootMargin: '-45% 0px -50% 0px' });
+  sectionById.forEach((section) => section && spy.observe(section));
+}
+
+/* Reveal on scroll */
+if ('IntersectionObserver' in window) {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
       entry.target.classList.add('visible');
       observer.unobserve(entry.target);
-    }
-  });
-}, { threshold: .12, rootMargin: '0px 0px -3% 0px' });
-document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -3% 0px' });
+  document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
+} else {
+  document.querySelectorAll('.reveal').forEach((el) => el.classList.add('visible'));
+}
 
-if (!reduceMotion && heroMedia && window.matchMedia('(pointer:fine)').matches) {
+/* Parallax discreto do hero com o ponteiro (somente mouse) */
+if (!reduceMotion && hero && finePointer) {
   hero.addEventListener('pointermove', (event) => {
     const rect = hero.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width - .5) * -14;
-    const y = ((event.clientY - rect.top) / rect.height - .5) * -9;
-    hero.style.setProperty('--hero-pan-x', `${x.toFixed(1)}px`);
-    hero.style.setProperty('--hero-pan-y', `${y.toFixed(1)}px`);
+    hero.style.setProperty('--hero-pan-x', `${(((event.clientX - rect.left) / rect.width - 0.5) * -14).toFixed(1)}px`);
+    hero.style.setProperty('--hero-pan-y', `${(((event.clientY - rect.top) / rect.height - 0.5) * -9).toFixed(1)}px`);
   }, { passive: true });
   hero.addEventListener('pointerleave', () => {
     hero.style.setProperty('--hero-pan-x', '0px');
@@ -90,75 +129,100 @@ if (!reduceMotion && heroMedia && window.matchMedia('(pointer:fine)').matches) {
   });
 }
 
-const activityImage = document.querySelector('.activity-image');
-if (!reduceMotion && activityImage && window.matchMedia('(pointer:fine)').matches) {
-  activityImage.addEventListener('pointermove', (event) => {
-    const rect = activityImage.getBoundingClientRect();
-    const px = (event.clientX - rect.left) / rect.width - .5;
-    const py = (event.clientY - rect.top) / rect.height - .5;
-    activityImage.style.setProperty('--tilt-y', `${(px * 5).toFixed(2)}deg`);
-    activityImage.style.setProperty('--tilt-x', `${(py * -4).toFixed(2)}deg`);
-  }, { passive: true });
-  activityImage.addEventListener('pointerleave', () => {
-    activityImage.style.setProperty('--tilt-y', '0deg');
-    activityImage.style.setProperty('--tilt-x', '0deg');
+/* Contadores das conquistas */
+if ('IntersectionObserver' in window && !reduceMotion) {
+  const statsObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      const el = entry.target;
+      statsObserver.unobserve(el);
+      const match = el.textContent.trim().match(/^(\d+)(.*)$/);
+      if (!match) return;
+      const target = Number(match[1]);
+      const suffix = match[2];
+      const start = performance.now();
+      const step = (now) => {
+        const t = clamp((now - start) / 950);
+        el.textContent = `${Math.round(target * (1 - Math.pow(1 - t, 3)))}${suffix}`;
+        if (t < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+  }, { threshold: 0.7 });
+  document.querySelectorAll('[data-count]').forEach((el) => statsObserver.observe(el));
+}
+
+/* Formulário: valida, abre o WhatsApp e oferece link caso o navegador bloqueie a nova aba */
+const form = document.querySelector('#contact-form');
+const status = document.querySelector('#form-status');
+const rules = {
+  nome: (v) => (v.length < 2 ? 'Informe seu nome.' : ''),
+  telefone: (v) => (v.replace(/\D/g, '').length < 10 ? 'Informe um telefone com DDD, por exemplo (54) 90000-0000.' : ''),
+  email: (v) => (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? 'Esse e-mail parece incompleto.' : ''),
+  assunto: (v) => (v ? '' : 'Escolha um assunto.'),
+  mensagem: (v) => (v.length < 5 ? 'Escreva uma mensagem curta.' : ''),
+};
+
+function validateField(name) {
+  const field = form.elements[name];
+  const error = document.getElementById(`${name}-erro`);
+  const message = rules[name](String(field.value || '').trim());
+  error.textContent = message;
+  if (message) field.setAttribute('aria-invalid', 'true'); else field.removeAttribute('aria-invalid');
+  return message;
+}
+
+if (form && status) {
+  Object.keys(rules).forEach((name) => {
+    form.elements[name].addEventListener('blur', () => validateField(name));
+    form.elements[name].addEventListener('input', () => {
+      if (form.elements[name].getAttribute('aria-invalid')) validateField(name);
+    });
+  });
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    status.textContent = '';
+    const firstInvalid = Object.keys(rules).filter((name) => validateField(name))[0];
+    if (firstInvalid) {
+      form.elements[firstInvalid].focus();
+      status.textContent = 'Revise os campos destacados.';
+      return;
+    }
+
+    const data = new FormData(form);
+    const get = (key) => String(data.get(key) || '').trim();
+    const text = `Olá! Vim pelo site do CTG Ronda Charrua.\n\nNome: ${get('nome')}\nTelefone: ${get('telefone')}\nE-mail: ${get('email') || 'não informado'}\nAssunto: ${get('assunto')}\n\nMensagem: ${get('mensagem')}`;
+    const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
+    const opened = window.open(url, '_blank', 'noopener');
+
+    status.textContent = '';
+    if (opened === null) {
+      status.append('Seu navegador bloqueou a nova aba. ');
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.textContent = 'Toque aqui para abrir o WhatsApp.';
+      status.append(link);
+    } else {
+      status.textContent = 'Abrindo o WhatsApp com sua mensagem pronta…';
+    }
   });
 }
 
-const statsObserver = new IntersectionObserver((entries) => {
-  entries.forEach((entry) => {
-    if (!entry.isIntersecting || reduceMotion) return;
-    const el = entry.target;
-    const raw = el.textContent.trim();
-    const match = raw.match(/^(\d+)(.*)$/);
-    if (!match) return;
-    const target = Number(match[1]);
-    const suffix = match[2];
-    const start = performance.now();
-    const duration = 950;
-    const animate = (now) => {
-      const t = clamp((now - start) / duration);
-      const eased = 1 - Math.pow(1 - t, 3);
-      el.textContent = `${Math.round(target * eased)}${suffix}`;
-      if (t < 1) requestAnimationFrame(animate);
-    };
-    requestAnimationFrame(animate);
-    statsObserver.unobserve(el);
-  });
-}, { threshold: .7 });
-document.querySelectorAll('.big-stats strong').forEach((el) => statsObserver.observe(el));
-
-const form = document.querySelector('#contact-form');
-const status = document.querySelector('#form-status');
-form?.addEventListener('submit', (event) => {
-  event.preventDefault();
-  const data = new FormData(form);
-  const nome = String(data.get('nome') || '').trim();
-  const telefone = String(data.get('telefone') || '').trim();
-  const email = String(data.get('email') || '').trim();
-  const assunto = String(data.get('assunto') || '').trim();
-  const mensagem = String(data.get('mensagem') || '').trim();
-  const text = `Olá! Vim pelo site do CTG Ronda Charrua.\n\nNome: ${nome}\nTelefone: ${telefone}\nE-mail: ${email || 'não informado'}\nAssunto: ${assunto}\n\nMensagem: ${mensagem}`;
-  const url = `https://wa.me/5554996893919?text=${encodeURIComponent(text)}`;
-  status.textContent = 'Abrindo o WhatsApp com sua mensagem pronta…';
-  window.open(url, '_blank', 'noopener');
-});
-
-// RevealImage (React + Framer Motion) é carregado sob demanda, pouco antes
-// da primeira imagem entrar na tela, para não pesar no carregamento inicial.
+/* RevealImage (React + Framer Motion) é carregado sob demanda, pouco antes
+   da primeira imagem entrar na tela, para não pesar no carregamento inicial. */
 const revealMounts = document.querySelectorAll('[data-reveal-image]');
 if (revealMounts.length && 'IntersectionObserver' in window) {
   let revealLoaded = false;
-  const loadRevealImages = () => {
-    if (revealLoaded) return;
+  const revealObserver = new IntersectionObserver((entries) => {
+    if (revealLoaded || !entries.some((entry) => entry.isIntersecting)) return;
     revealLoaded = true;
     revealObserver.disconnect();
     import('./assets/js/reveal-image.js').catch(() => {
       // Sem o módulo, as imagens estáticas de fallback continuam visíveis.
     });
-  };
-  const revealObserver = new IntersectionObserver((entries) => {
-    if (entries.some((entry) => entry.isIntersecting)) loadRevealImages();
   }, { rootMargin: '900px 0px' });
   revealMounts.forEach((el) => revealObserver.observe(el));
 }
