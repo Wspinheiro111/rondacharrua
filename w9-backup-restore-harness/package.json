@@ -1,0 +1,19 @@
+{
+  "name": "w9-backup-restore-harness",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "vitest run server/mysqlBackupRestore.test.ts",
+    "drill": "tsx scripts/mysqlBackupRestoreDrill.ts"
+  },
+  "dependencies": {
+    "mysql2": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.0",
+    "tsx": "^4.19.1",
+    "typescript": "5.9.3",
+    "vitest": "^2.1.4"
+  }
+}
