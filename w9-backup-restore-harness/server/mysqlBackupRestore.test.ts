@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   assertRestoreSafety,
   buildClientConfig,
+  buildDumpArgs,
+  buildRestoreArgs,
   computeSha256,
   parseMysqlUrl,
   verifyManifest,
@@ -13,11 +15,13 @@ describe("backup e restauração MySQL", () => {
     expect(() => parseMysqlUrl("postgres://u:p@db.example/app", "DATABASE_URL")).toThrow(/mysql/i);
   });
 
-  it("não coloca senha nos argumentos/configuração exibível do processo", () => {
+  it("mantém a senha somente no arquivo temporário e fora de argumentos/labels", () => {
     const parsed = parseMysqlUrl("mysql://user:segredo@db.example:3307/w9_prod", "DATABASE_URL");
     const config = buildClientConfig(parsed);
-    expect(config).toContain("password=segredo");
-    expect(config).toContain("host=db.example");
+    expect(config).toContain('password="segredo"');
+    expect(config).toContain('host="db.example"');
+    expect(buildDumpArgs("/tmp/client.cnf", parsed.database).join(" ")).not.toContain("segredo");
+    expect(buildRestoreArgs("/tmp/client.cnf", parsed.database).join(" ")).not.toContain("segredo");
     expect(parsed.safeLabel).toBe("db.example:3307/w9_prod");
     expect(parsed.safeLabel).not.toContain("segredo");
   });
@@ -54,10 +58,12 @@ describe("backup e restauração MySQL", () => {
     })).not.toThrow();
   });
 
-  it("detecta dump corrompido por SHA-256", () => {
+  it("detecta dump corrompido de mesmo tamanho por SHA-256", () => {
     const dump = Buffer.from("CREATE TABLE t(id int);\n");
     const manifest = { sha256: computeSha256(dump), bytes: dump.length };
+    const corrupted = Buffer.from("CREATE TABLE u(id int);\n");
+    expect(corrupted.length).toBe(dump.length);
     expect(() => verifyManifest(dump, manifest)).not.toThrow();
-    expect(() => verifyManifest(Buffer.from("corrompido"), manifest)).toThrow(/checksum|SHA-256/i);
+    expect(() => verifyManifest(corrupted, manifest)).toThrow(/checksum|SHA-256/i);
   });
 });
