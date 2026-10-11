@@ -13,14 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
-      mariadb:
-        image: mariadb:11.8
+      mysql:
+        image: mysql:8.4
         env:
-          MARIADB_ROOT_PASSWORD: ci-root-password
+          MYSQL_ROOT_PASSWORD: ci-root-password
         ports:
           - 3306:3306
         options: >-
-          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pci-root-password"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=12
@@ -32,9 +32,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: "22"
-      - name: Install MariaDB client
-        run: sudo apt-get update && sudo apt-get install -y mariadb-client
-        working-directory: .
+      - name: Confirm MySQL client availability
+        run: mysql --version && mysqldump --version
       - name: Install harness dependencies
         run: npm install --no-audit --no-fund
       - name: Typecheck exact implementation
@@ -46,6 +45,4 @@ jobs:
           DRILL_ADMIN_DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/mysql
           DRILL_ALLOW_HOST: 127.0.0.1
           DRILL_CONFIRM: CREATE_AND_DROP_DISPOSABLE_DATABASES
-          MYSQLDUMP_BINARY: mariadb-dump
-          MYSQL_BINARY: mariadb
         run: npm run drill
