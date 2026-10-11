@@ -1,0 +1,51 @@
+name: W9 backup restore proof
+
+on:
+  push:
+    branches:
+      - ci/w9-backup-restore-harness-20261011
+
+permissions:
+  contents: read
+
+jobs:
+  backup-restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mariadb:
+        image: mariadb:11.8
+        env:
+          MARIADB_ROOT_PASSWORD: ci-root-password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    defaults:
+      run:
+        working-directory: w9-backup-restore-harness
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Install MariaDB client
+        run: sudo apt-get update && sudo apt-get install -y mariadb-client
+        working-directory: .
+      - name: Install harness dependencies
+        run: npm install --no-audit --no-fund
+      - name: Typecheck exact implementation
+        run: npm run check
+      - name: Run backup restore safety contract
+        run: npm test
+      - name: Prove real dump and restore
+        env:
+          DRILL_ADMIN_DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/mysql
+          DRILL_ALLOW_HOST: 127.0.0.1
+          DRILL_CONFIRM: CREATE_AND_DROP_DISPOSABLE_DATABASES
+          MYSQLDUMP_BINARY: mariadb-dump
+          MYSQL_BINARY: mariadb
+        run: npm run drill
