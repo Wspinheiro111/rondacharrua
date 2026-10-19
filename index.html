@@ -33,6 +33,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&amp;family=Inter:wght@400;500;600;700&amp;display=swap" media="print" onload="this.media='all'" />
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&amp;family=Inter:wght@400;500;600;700&amp;display=swap" /></noscript>
   <link rel="stylesheet" href="styles.css" />
+  <script>try{if(!matchMedia("(prefers-reduced-motion: reduce)").matches&&!sessionStorage.getItem("ronda-curtain"))document.documentElement.classList.add("show-curtain")}catch(e){}</script>
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -143,14 +144,14 @@
       <a class="scroll-cue" href="#historia" aria-label="Rolar para a história"><span aria-hidden="true"></span></a>
     </section>
 
-    <section class="section history" id="historia" aria-labelledby="historia-title">
+    <section class="section history" id="historia" data-theme="light" aria-labelledby="historia-title">
       <div class="wrap story">
         <div>
           <div class="section-head reveal">
             <p class="kicker">História e legado</p>
             <h2 id="historia-title">Um dos nomes históricos do <em>tradicionalismo gaúcho.</em></h2>
           </div>
-          <div class="history-text reveal">
+          <div class="history-text reveal" data-scroll-text>
             <p class="lead">O Ronda Charrua nasceu em <strong>28 de maio de 1953</strong>, em Farroupilha, e se tornou entidade pioneira do tradicionalismo na Serra Gaúcha.</p>
             <p>Registros históricos apontam Ivo Sanguinett, então ligado ao 35 CTG de Porto Alegre, e Ângelo Venzon entre os articuladores da criação da entidade. A primeira patronagem teve Ângelo Venzon Neto como patrão.</p>
             <p>O patrono escolhido foi <strong>Giuseppe Garibaldi</strong>, o “Herói dos Dois Mundos”.</p>
@@ -172,7 +173,7 @@
       </div>
     </section>
 
-    <section class="section alt activities" id="atividades" aria-labelledby="atividades-title">
+    <section class="section activities" id="atividades" data-theme="alt" aria-labelledby="atividades-title">
       <div class="wrap">
         <div class="section-head reveal">
           <p class="kicker">Viva o Ronda</p>
@@ -189,22 +190,27 @@
       </div>
     </section>
 
-    <section class="section dark achievements" id="conquistas" aria-labelledby="conquistas-title">
+    <section class="section achievements" id="conquistas" data-theme="dark" aria-labelledby="conquistas-title">
       <div class="wrap">
         <div class="section-head reveal">
           <p class="kicker">Conquistas e cultura</p>
           <h2 id="conquistas-title">Quando o trabalho de gerações <em>encontra o palco.</em></h2>
         </div>
-        <div class="big-stats reveal">
-          <div><strong data-count>3</strong><span>grandes títulos<br />FEGART/ENART</span></div>
-          <div><strong data-count>73</strong><span>anos de história<br />em 2026</span></div>
-          <div><strong data-count>25ª</strong><span>Região<br />Tradicionalista</span></div>
-        </div>
-        <div class="achievement-cards">
-          <article class="reveal"><time datetime="1990">1990</time><h3>Campeão do FEGART</h3><p>O primeiro título que colocou o Ronda entre os grandes vencedores da história do festival.</p></article>
-          <article class="reveal"><time datetime="2013">2013</time><h3>Campeão do ENART</h3><p>1º lugar nas Danças Tradicionais — Força A, com uma apresentação marcante sobre Anita e Garibaldi.</p></article>
-          <article class="featured reveal"><time datetime="2024">2024</time><h3>Campeão da Força A</h3><p>Além do título: grupo de danças mais popular, melhor indumentária, 2ª melhor saída e 2º lugar no Troféu Destaque do Ano.</p></article>
-          <article class="reveal"><time datetime="2025">2025</time><h3>Entre os melhores novamente</h3><p>3º lugar na Força A, grupo mais popular, melhor coreografia de saída e melhor música inédita de saída.</p></article>
+        <div class="bento">
+          <article class="tile tile-feature reveal">
+            <img class="tile-bg" src="https://cdn-images-site-arauto.portalarauto.com.br/2024/11/ronda-charruaok-1200x800.jpg" alt="" width="1200" height="800" loading="lazy" decoding="async" />
+            <div class="tile-body">
+              <time datetime="2024">2024</time>
+              <h3>Campeão da Força A</h3>
+              <p>Além do título: grupo de danças mais popular, melhor indumentária, 2ª melhor saída e 2º lugar no Troféu Destaque do Ano.</p>
+            </div>
+          </article>
+          <article class="tile reveal"><time datetime="2013">2013</time><h3>Campeão do ENART</h3><p>1º lugar nas Danças Tradicionais — Força A, com uma apresentação marcante sobre Anita e Garibaldi.</p></article>
+          <article class="tile reveal"><time datetime="1990">1990</time><h3>Campeão do FEGART</h3><p>O primeiro título que colocou o Ronda entre os grandes vencedores da história do festival.</p></article>
+          <article class="tile tile-wide reveal"><time datetime="2025">2025</time><h3>Entre os melhores novamente</h3><p>3º lugar na Força A, grupo mais popular, melhor coreografia de saída e melhor música inédita de saída.</p></article>
+          <div class="tile tile-stat reveal"><strong data-count>3</strong><span>grandes títulos FEGART/ENART</span></div>
+          <div class="tile tile-stat reveal"><strong data-count>73</strong><span>anos de história em 2026</span></div>
+          <div class="tile tile-stat tile-stat-wide reveal"><strong data-count>25ª</strong><span>Região Tradicionalista</span></div>
         </div>
         <div class="gallery" id="galeria" role="region" aria-roledescription="carrossel" aria-label="Galeria de fotos do Ronda Charrua">
           <div class="track" id="track" tabindex="0">
@@ -241,7 +247,7 @@
       </div>
     </section>
 
-    <section class="section agenda-section" id="agenda" aria-labelledby="agenda-title">
+    <section class="section agenda-section" id="agenda" data-theme="light" aria-labelledby="agenda-title">
       <div class="wrap agenda">
         <div class="reveal">
           <p class="kicker">Agenda e redes</p>
@@ -258,7 +264,7 @@
       </div>
     </section>
 
-    <section class="section alt contact" id="contato" aria-labelledby="contato-title">
+    <section class="section contact" id="contato" data-theme="alt" aria-labelledby="contato-title">
       <div class="wrap">
         <div class="section-head reveal">
           <p class="kicker">Visite e fale conosco</p>
@@ -339,6 +345,10 @@
     <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M12.04 2a9.9 9.9 0 0 0-8.5 14.98L2 22l5.16-1.5A9.93 9.93 0 1 0 12.04 2Zm0 18.1a8.2 8.2 0 0 1-4.18-1.15l-.3-.18-3.06.89.9-2.98-.2-.31a8.17 8.17 0 1 1 6.84 3.73Zm4.49-6.12c-.25-.12-1.46-.72-1.69-.8-.23-.08-.39-.12-.55.12-.16.25-.63.8-.78.96-.14.16-.29.18-.53.06a6.7 6.7 0 0 1-3.32-2.9c-.25-.43.25-.4.72-1.33.08-.16.04-.3-.02-.43-.06-.12-.55-1.33-.76-1.82-.2-.48-.4-.41-.55-.42h-.47a.9.9 0 0 0-.65.3 2.74 2.74 0 0 0-.86 2.04 4.77 4.77 0 0 0 1 2.53 10.9 10.9 0 0 0 4.18 3.69c1.55.67 2.16.73 2.94.61.47-.07 1.46-.6 1.67-1.18.2-.58.2-1.08.14-1.18-.06-.1-.22-.16-.47-.29Z"/></svg>
     <b>WhatsApp</b>
   </a>
+  <div class="curtain" aria-hidden="true">
+    <img src="assets/logo-ronda-charrua-192.png" alt="" width="192" height="192" />
+    <p>Pelo Rio Grande o Rodeio das Tradições</p>
+  </div>
   <script src="script.js" defer></script>
 </body>
 </html>

@@ -5,11 +5,33 @@ const header = document.querySelector('.site-header');
 const toggle = document.querySelector('.menu-toggle');
 const menu = document.querySelector('.menu');
 const hero = document.querySelector('.hero');
-const motto = document.querySelector('.motto');
-const mottoWords = [...document.querySelectorAll('[data-highlight] span')];
 const whatsappFloat = document.querySelector('.whatsapp-float');
 const footer = document.querySelector('.site-footer');
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+/* Palavras que acendem com o scroll: o lema já vem com <span>s; os parágrafos
+   da história são divididos em palavras aqui, só quando há movimento. */
+function splitWords(root) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach((node) => {
+    const parts = node.nodeValue.split(/(\s+)/).filter(Boolean);
+    if (parts.length < 2 && !parts[0]?.trim()) return;
+    const frag = document.createDocumentFragment();
+    parts.forEach((part) => {
+      if (!part.trim()) { frag.append(part); return; }
+      const span = document.createElement('span');
+      span.textContent = part;
+      frag.append(span);
+    });
+    node.replaceWith(frag);
+  });
+}
+if (!reduceMotion) {
+  document.querySelectorAll('[data-scroll-text] p').forEach((p) => { splitWords(p); p.setAttribute('data-highlight', ''); });
+}
+const highlightGroups = [...document.querySelectorAll('[data-highlight]')].map((el) => ({ el, words: [...el.querySelectorAll('span')] }));
+const themedSections = [...document.querySelectorAll('main [data-theme]')];
 const finePointer = window.matchMedia('(pointer: fine)').matches;
 
 const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
@@ -27,6 +49,11 @@ function updateScrollEffects() {
     whatsappFloat.classList.toggle('near-footer', footer.getBoundingClientRect().top < vh - 40);
   }
 
+  // Fundo da página segue a seção que passou da metade da tela
+  let theme = 'light';
+  themedSections.forEach((section) => { if (section.getBoundingClientRect().top <= vh * 0.55) theme = section.dataset.theme; });
+  if (document.body.dataset.theme !== theme) document.body.dataset.theme = theme;
+
   if (reduceMotion) return;
 
   if (hero) {
@@ -38,13 +65,14 @@ function updateScrollEffects() {
     hero.style.setProperty('--hero-copy-opacity', String(clamp(1 - progress * 1.05, 0.18, 1)));
   }
 
-  // Lema: acende uma palavra por vez conforme o cartão sobe na tela
-  if (motto && mottoWords.length) {
-    const rect = motto.getBoundingClientRect();
-    const progress = clamp((vh * 0.9 - rect.top) / (vh * 0.55));
-    const lit = Math.round(progress * mottoWords.length);
-    mottoWords.forEach((word, index) => word.classList.toggle('lit', index < lit));
-  }
+  // Lema e história: uma palavra acende por vez conforme o bloco sobe na tela
+  highlightGroups.forEach(({ el, words }) => {
+    const rect = el.getBoundingClientRect();
+    if (rect.bottom < 0 || rect.top > vh) return;
+    const progress = clamp((vh * 0.88 - rect.top) / (vh * 0.5));
+    const lit = Math.round(progress * words.length);
+    words.forEach((word, index) => word.classList.toggle('lit', index < lit));
+  });
 }
 
 let scrollTicking = false;
@@ -178,6 +206,18 @@ if (bgVideos.length && !reduceMotion && !lowData) {
   const later = () => ('requestIdleCallback' in window ? requestIdleCallback(startVideos, { timeout: 3000 }) : setTimeout(startVideos, 1500));
   if (document.readyState === 'complete') later();
   else window.addEventListener('load', later, { once: true });
+}
+
+/* Cortina de abertura: sobe depois que o brasão apareceu e não volta na mesma sessão */
+const curtain = document.querySelector('.curtain');
+if (curtain && document.documentElement.classList.contains('show-curtain')) {
+  const finish = () => {
+    curtain.classList.add('is-gone');
+    try { sessionStorage.setItem('ronda-curtain', '1'); } catch { /* armazenamento indisponível */ }
+  };
+  curtain.addEventListener('transitionend', finish, { once: true });
+  setTimeout(() => curtain.classList.add('is-up'), 1350);
+  setTimeout(finish, 2800);
 }
 
 /* Galeria: botões rolam o carrossel (scroll-snap) */
