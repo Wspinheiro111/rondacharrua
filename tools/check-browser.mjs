@@ -34,6 +34,8 @@ async function open(width, height, opts = {}) {
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource|ERR_FAILED/.test(m.text())) errors.push(m.text()); });
   await page.goto(base, { waitUntil: "load" });
+  // A cortina de abertura cobre a tela por ~2,5 s na primeira visita
+  await page.waitForFunction(() => { const c = document.querySelector(".curtain"); return !c || c.classList.contains("is-gone") || getComputedStyle(c).display === "none"; }, null, { timeout: 6000 }).catch(() => {});
   return { ctx, page, errors };
 }
 
@@ -115,6 +117,36 @@ for (const [w, h] of viewports) {
   await ctx.close();
 }
 
+// Cortina de abertura: aparece na primeira visita, sobe e não volta na sessão
+{
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const page = await ctx.newPage();
+  await page.route(/./, (r) => (r.request().url().startsWith(base) ? r.continue() : r.abort()));
+  await page.goto(base, { waitUntil: "domcontentloaded" });
+  const shown = await page.evaluate(() => getComputedStyle(document.querySelector(".curtain")).display !== "none");
+  if (!shown) fail("cortina não apareceu na primeira visita"); else ok("cortina aparece na primeira visita");
+  await page.waitForFunction(() => document.querySelector(".curtain").classList.contains("is-gone"), null, { timeout: 6000 }).catch(() => {});
+  const gone = await page.evaluate(() => document.querySelector(".curtain").classList.contains("is-gone"));
+  if (!gone) fail("cortina não subiu em 6 s"); else ok("cortina sobe e libera a página");
+  await page.reload({ waitUntil: "domcontentloaded" });
+  const again = await page.evaluate(() => document.documentElement.classList.contains("show-curtain"));
+  if (again) fail("cortina voltou a aparecer na mesma sessão"); else ok("cortina não repete na mesma sessão");
+  await ctx.close();
+}
+
+// Fundo muda de cor conforme a seção
+{
+  const { ctx, page } = await open(1440, 900);
+  const at = async (id) => { await page.evaluate((s) => { const r = document.querySelector(s).getBoundingClientRect(); window.scrollTo({ top: window.scrollY + r.top - 100, behavior: "instant" }); }, id); await page.waitForTimeout(150); return page.evaluate(() => document.body.dataset.theme); };
+  const dark = await at("#conquistas"); const light = await at("#agenda");
+  if (dark !== "dark" || light !== "light") fail(`tema do fundo errado: conquistas=${dark} agenda=${light}`); else ok("fundo muda para escuro nas Conquistas e volta ao claro na Agenda");
+  await page.evaluate(() => { const r = document.querySelector(".history-text").getBoundingClientRect(); window.scrollTo({ top: window.scrollY + r.top - 150, behavior: "instant" }); });
+  await page.waitForTimeout(200);
+  const litWords = await page.locator(".history-text p span.lit").count();
+  if (litWords < 5) fail(`história: só ${litWords} palavras acesas`); else ok(`história: ${litWords} palavras acendem com o scroll`);
+  await ctx.close();
+}
+
 // Vídeo de fundo: iframe do YouTube com o vídeo da Adulta, sem som
 {
   const { ctx, page } = await open(1440, 900);
@@ -149,8 +181,10 @@ for (const [w, h] of viewports) {
     words: [...document.querySelectorAll(".motto-text span")].every((s) => getComputedStyle(s).opacity === "1"),
     sticky: getComputedStyle(document.querySelector(".motto")).position,
     video: !!document.querySelector(".bg-video iframe"),
+    curtain: document.documentElement.classList.contains("show-curtain"),
+    split: !!document.querySelector(".history-text p span"),
   }));
-  if (r.reveal !== "1" || !r.words || r.sticky !== "static" || r.video) fail(`reduced motion não respeitado: ${JSON.stringify(r)}`); else ok("prefers-reduced-motion: conteúdo visível, sem sticky/parallax");
+  if (r.reveal !== "1" || !r.words || r.sticky !== "static" || r.video || r.curtain || r.split) fail(`reduced motion não respeitado: ${JSON.stringify(r)}`); else ok("prefers-reduced-motion: conteúdo visível, sem sticky/parallax");
   if (errors.length) fail(`reduced motion: erros ${errors}`);
   await ctx.close();
 }
