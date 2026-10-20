@@ -164,7 +164,13 @@ for (const [w, h] of viewports) {
     const state = await sound.evaluate((b) => ({ pressed: b.getAttribute("aria-pressed"), label: b.getAttribute("aria-label"), top: b.getBoundingClientRect().top, header: document.querySelector(".site-header").getBoundingClientRect().bottom }));
     if (state.pressed !== "true" || !state.label.includes("Desligar")) fail(`botão de som não alterna: ${JSON.stringify(state)}`);
     else if (state.top < state.header) fail("botão de som fica sob o menu");
-    else ok("botão de som aparece com o vídeo, alterna e fica abaixo do menu");
+    else {
+      ok("botão de som aparece com o vídeo, alterna e fica abaixo do menu");
+      await page.evaluate(() => window.scrollTo({ top: 400, behavior: "instant" }));
+      await page.waitForTimeout(300);
+      const after = await sound.getAttribute("aria-pressed");
+      if (after !== "false") fail("som continua ligado depois que o botão some sob o menu"); else ok("som desliga quando o botão sai do alcance");
+    }
   }
   await ctx.close();
 }

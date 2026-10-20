@@ -233,6 +233,17 @@ if (bgVideos.length && !reduceMotion && !lowData) {
       setSound(on);
     });
     (box.closest('section') || box.parentElement).append(sound);
+    // Se o botão sumir sob o menu ao rolar, o som desliga: o visitante nunca
+    // fica com áudio tocando sem ter como desligar.
+    if ('IntersectionObserver' in window) {
+      const headerH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-h')) || 88;
+      new IntersectionObserver(([entry]) => {
+        if (!entry.isIntersecting && sound.getAttribute('aria-pressed') === 'true') {
+          command('mute');
+          setSound(false);
+        }
+      }, { rootMargin: `-${headerH}px 0px 0px 0px` }).observe(sound);
+    }
 
     // O vídeo e o botão só aparecem quando o player avisa que está tocando.
     window.addEventListener('message', (event) => {
