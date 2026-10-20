@@ -178,6 +178,24 @@ if ('IntersectionObserver' in window && !reduceMotion) {
 const bgVideos = document.querySelectorAll('[data-yt]');
 const connection = navigator.connection;
 const lowData = connection && (connection.saveData || /(^|-)2g$/.test(connection.effectiveType || ''));
+const soundIcon = (on) => {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '2');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  const paths = ['M11 5 6 9H2v6h4l5 4z', ...(on ? ['M15.5 8.5a5 5 0 0 1 0 7', 'M19 5a10 10 0 0 1 0 14'] : ['m22 9-6 6', 'm16 9 6 6'])];
+  paths.forEach((d) => {
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', d);
+    svg.append(path);
+  });
+  return svg;
+};
 if (bgVideos.length && !reduceMotion && !lowData) {
   const startVideos = () => bgVideos.forEach((box) => {
     const id = box.dataset.yt;
@@ -189,13 +207,42 @@ if (bgVideos.length && !reduceMotion && !lowData) {
     frame.tabIndex = -1;
     frame.setAttribute('aria-hidden', 'true');
     const ytOrigin = new URL(frame.src).origin;
-    const command = (func) => frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args: [] }), ytOrigin);
-    // O vídeo só aparece quando o player avisa que está tocando.
+    const command = (func, args = []) => frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), ytOrigin);
+
+    // Botão de som (igual ao do Aldeia): o vídeo começa mudo, exigência dos
+    // navegadores, e o visitante liga o som quando quiser.
+    const sound = document.createElement('button');
+    sound.type = 'button';
+    sound.className = 'sound-toggle';
+    sound.hidden = true;
+    const setSound = (on) => {
+      sound.setAttribute('aria-pressed', String(on));
+      sound.setAttribute('aria-label', on ? 'Desligar o som do vídeo' : 'Ligar o som do vídeo');
+      sound.replaceChildren(soundIcon(on), Object.assign(document.createElement('span'), { textContent: on ? 'Som ligado' : 'Ligar som' }));
+    };
+    setSound(false);
+    sound.addEventListener('click', () => {
+      const on = sound.getAttribute('aria-pressed') !== 'true';
+      if (on) {
+        command('unMute');
+        command('setVolume', [100]);
+        command('playVideo');
+      } else {
+        command('mute');
+      }
+      setSound(on);
+    });
+    (box.closest('section') || box.parentElement).append(sound);
+
+    // O vídeo e o botão só aparecem quando o player avisa que está tocando.
     window.addEventListener('message', (event) => {
       if (event.origin !== ytOrigin || event.source !== frame.contentWindow) return;
       let data;
       try { data = JSON.parse(event.data); } catch { return; }
-      if (data?.info?.playerState === 1) box.classList.add('is-on');
+      if (data?.info?.playerState === 1) {
+        box.classList.add('is-on');
+        sound.hidden = false;
+      }
     });
     frame.addEventListener('load', () => frame.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id, channel: 'widget' }), ytOrigin), { once: true });
     box.append(frame);
