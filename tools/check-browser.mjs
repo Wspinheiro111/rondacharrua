@@ -1,0 +1,194 @@
+// Teste em Chromium: overflow horizontal, erros de console, menu, formulário,
+// reduced motion e RevealImage. Imagens externas são substituídas por um
+// placeholder local para o teste rodar offline.
+import { chromium } from "playwright-core";
+import { createServer } from "node:http";
+import { readFileSync, existsSync, mkdirSync } from "node:fs";
+import { resolve, dirname, extname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const out = resolve(root, "tools/test-results");
+mkdirSync(out, { recursive: true });
+const types = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".png": "image/png", ".xml": "application/xml", ".txt": "text/plain" };
+const server = createServer((req, res) => {
+  const path = resolve(root, "." + (req.url.split("?")[0] === "/" ? "/index.html" : req.url.split("?")[0]));
+  if (!path.startsWith(root) || !existsSync(path)) { res.writeHead(404).end(); return; }
+  res.writeHead(200, { "content-type": types[extname(path)] || "application/octet-stream" }).end(readFileSync(path));
+});
+await new Promise((r) => server.listen(0, r));
+const base = `http://localhost:${server.address().port}/`;
+
+const svg = (w, h) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="#5a121b"/></svg>`;
+const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
+let failed = 0;
+const fail = (m) => { failed++; console.error("✗", m); };
+const ok = (m) => console.log("✓", m);
+
+async function open(width, height, opts = {}) {
+  const ctx = await browser.newContext({ viewport: { width, height }, reducedMotion: opts.reduced ? "reduce" : "no-preference", hasTouch: width < 900 });
+  await ctx.route(/^https:\/\/(media\.ofarroupilha\.com\.br|cdn-images-site-arauto\.portalarauto\.com\.br)\//, (r) => r.fulfill({ contentType: "image/svg+xml", body: svg(1024, 683) }));
+  await ctx.route(/fonts\.(googleapis|gstatic)\.com|google\.com\/maps|youtube-nocookie\.com/, (r) => r.abort());
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource|ERR_FAILED/.test(m.text())) errors.push(m.text()); });
+  await page.goto(base, { waitUntil: "load" });
+  // A cortina de abertura cobre a tela por ~2,5 s na primeira visita
+  await page.waitForFunction(() => { const c = document.querySelector(".curtain"); return !c || c.classList.contains("is-gone") || getComputedStyle(c).display === "none"; }, null, { timeout: 6000 }).catch(() => {});
+  return { ctx, page, errors };
+}
+
+async function scrollThrough(page) {
+  const h = await page.evaluate(() => document.documentElement.scrollHeight);
+  for (let y = 0; y < h; y += 500) { await page.evaluate((v) => window.scrollTo({ top: v, behavior: 'instant' }), y); await page.waitForTimeout(60); }
+}
+
+const viewports = [[360, 740], [375, 812], [390, 844], [430, 932], [768, 1024], [1440, 900]];
+for (const [w, h] of viewports) {
+  const { ctx, page, errors } = await open(w, h);
+  await scrollThrough(page);
+  await page.waitForTimeout(500);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  if (overflow > 0) fail(`${w}px: scroll horizontal (${overflow}px)`); else ok(`${w}px: sem scroll horizontal`);
+  const cut = await page.evaluate(() => [...document.querySelectorAll("body *")].filter((el) => {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && (r.right > document.documentElement.clientWidth + 1 || r.left < -1) && !el.closest(".hero-media,.menu:not(.open),.skip-link,.gallery figure,.reveal-image-frame,.sr-only");
+  }).map((el) => el.className || el.tagName).slice(0, 5));
+  if (cut.length) fail(`${w}px: elementos fora da tela: ${cut}`);
+  const mounted = await page.evaluate(() => document.querySelectorAll(".reveal-image-frame img").length);
+  if (mounted !== 4) fail(`${w}px: RevealImage montou ${mounted}/4 imagens`);
+  const hidden = await page.evaluate(() => [...document.querySelectorAll(".reveal-image-frame")].filter((f) => !f.closest(".slide:not(:first-child)") && getComputedStyle(f).clipPath.startsWith("inset(100%")).length);
+  if (hidden) fail(`${w}px: ${hidden} imagem(ns) do RevealImage ficaram recortadas (invisíveis)`);
+  if (errors.length) fail(`${w}px: erros de console: ${errors.join(" | ")}`);
+  if (w < 700) {
+    const btn = await page.evaluate(() => { const r = document.querySelector(".whatsapp-float").getBoundingClientRect(); return { r: r.right, b: r.bottom }; });
+    if (btn.r > w || btn.b > h) fail(`${w}px: WhatsApp fora da tela`);
+  }
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${out}/home-${w}.png` });
+  await ctx.close();
+}
+
+// Menu mobile
+{
+  const { ctx, page } = await open(375, 812);
+  const t = page.locator(".menu-toggle");
+  await t.click();
+  if ((await t.getAttribute("aria-expanded")) !== "true") fail("menu não abriu");
+  await page.keyboard.press("Escape");
+  if ((await t.getAttribute("aria-expanded")) !== "false") fail("Esc não fechou o menu"); else ok("menu abre e fecha com Esc");
+  await t.click();
+  await page.locator('.menu a[href="#contato"]').click();
+  if (await page.locator(".menu.open").count()) fail("menu não fechou ao navegar"); else ok("menu fecha ao escolher link");
+  await ctx.close();
+}
+
+// Formulário
+{
+  const { ctx, page } = await open(390, 844);
+  await page.evaluate(() => { window.__opened = null; window.open = (u) => { window.__opened = u; return {}; }; });
+  await page.locator("#contato").scrollIntoViewIfNeeded();
+  await page.click('#contact-form button[type="submit"]');
+  const invalid = await page.locator('#contact-form [aria-invalid="true"]').count();
+  if (invalid !== 4) fail(`validação: esperados 4 campos inválidos, obtidos ${invalid}`); else ok("formulário vazio é bloqueado com erros por campo");
+  await page.fill("#nome", "Maria Teste");
+  await page.fill("#telefone", "(54) 99999-0000");
+  await page.selectOption("#assunto", "Eventos");
+  await page.fill("#mensagem", "Quero saber sobre eventos.");
+  await page.click('#contact-form button[type="submit"]');
+  const url = await page.evaluate(() => window.__opened);
+  if (!url || !url.startsWith("https://wa.me/5554996893919?text=") || !decodeURIComponent(url).includes("Maria Teste")) fail(`envio WhatsApp incorreto: ${url}`);
+  else ok("envio abre wa.me/5554996893919 com a mensagem");
+  await page.evaluate(() => { window.open = () => null; });
+  await page.click('#contact-form button[type="submit"]');
+  if (!(await page.locator("#form-status a").count())) fail("sem link alternativo quando o pop-up é bloqueado"); else ok("link alternativo aparece se o navegador bloquear a aba");
+  await ctx.close();
+}
+
+// Lema: palavras acendem com o scroll
+{
+  const { ctx, page } = await open(1440, 900);
+  await page.evaluate(() => { const r = document.querySelector(".motto").getBoundingClientRect(); window.scrollTo({ top: window.scrollY + r.top - 200, behavior: 'instant' }); });
+  await page.waitForTimeout(200);
+  const lit = await page.locator(".motto-text span.lit").count();
+  if (lit < 3) fail(`lema: apenas ${lit} palavras acesas no meio da seção`); else ok(`lema: ${lit}/7 palavras acesas no scroll`);
+  await ctx.close();
+}
+
+// Cortina de abertura: aparece na primeira visita, sobe e não volta na sessão
+{
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const page = await ctx.newPage();
+  await page.route(/./, (r) => (r.request().url().startsWith(base) ? r.continue() : r.abort()));
+  await page.goto(base, { waitUntil: "domcontentloaded" });
+  const shown = await page.evaluate(() => getComputedStyle(document.querySelector(".curtain")).display !== "none");
+  if (!shown) fail("cortina não apareceu na primeira visita"); else ok("cortina aparece na primeira visita");
+  await page.waitForFunction(() => document.querySelector(".curtain").classList.contains("is-gone"), null, { timeout: 6000 }).catch(() => {});
+  const gone = await page.evaluate(() => document.querySelector(".curtain").classList.contains("is-gone"));
+  if (!gone) fail("cortina não subiu em 6 s"); else ok("cortina sobe e libera a página");
+  await page.reload({ waitUntil: "domcontentloaded" });
+  const again = await page.evaluate(() => document.documentElement.classList.contains("show-curtain"));
+  if (again) fail("cortina voltou a aparecer na mesma sessão"); else ok("cortina não repete na mesma sessão");
+  await ctx.close();
+}
+
+// Fundo muda de cor conforme a seção
+{
+  const { ctx, page } = await open(1440, 900);
+  const at = async (id) => { await page.evaluate((s) => { const r = document.querySelector(s).getBoundingClientRect(); window.scrollTo({ top: window.scrollY + r.top - 100, behavior: "instant" }); }, id); await page.waitForTimeout(150); return page.evaluate(() => document.body.dataset.theme); };
+  const dark = await at("#conquistas"); const light = await at("#agenda");
+  if (dark !== "dark" || light !== "light") fail(`tema do fundo errado: conquistas=${dark} agenda=${light}`); else ok("fundo muda para escuro nas Conquistas e volta ao claro na Agenda");
+  await page.evaluate(() => { const r = document.querySelector(".history-text").getBoundingClientRect(); window.scrollTo({ top: window.scrollY + r.top - 150, behavior: "instant" }); });
+  await page.waitForTimeout(200);
+  const litWords = await page.locator(".history-text p span.lit").count();
+  if (litWords < 5) fail(`história: só ${litWords} palavras acesas`); else ok(`história: ${litWords} palavras acendem com o scroll`);
+  await ctx.close();
+}
+
+// Vídeo de fundo: iframe do YouTube com o vídeo da Adulta, sem som
+{
+  const { ctx, page } = await open(1440, 900);
+  await page.waitForSelector(".bg-video iframe", { state: "attached", timeout: 6000 }).catch(() => {});
+  const src = await page.evaluate(() => document.querySelector(".bg-video iframe")?.src || "");
+  if (!src.includes("youtube-nocookie.com/embed/-3lMd-e6sMI") || !src.includes("mute=1")) fail(`vídeo de fundo não carregou: ${src}`); else ok("vídeo de fundo da Adulta carrega sem som");
+  const hidden = await page.evaluate(() => getComputedStyle(document.querySelector(".bg-video")).opacity);
+  if (hidden !== "0") fail("vídeo aparece antes de o player confirmar que está tocando"); else ok("foto fica visível até o vídeo tocar");
+  await ctx.close();
+}
+
+// Galeria: botões avançam o carrossel
+{
+  const { ctx, page } = await open(1440, 900);
+  await page.locator("#galeria").scrollIntoViewIfNeeded();
+  const before = await page.evaluate(() => document.getElementById("track").scrollLeft);
+  await page.click('[data-slide="1"]');
+  await page.waitForTimeout(900);
+  const after = await page.evaluate(() => document.getElementById("track").scrollLeft);
+  if (after <= before) fail("galeria: botão próxima não avançou"); else ok("galeria: botões rolam o carrossel");
+  const second = await page.evaluate(() => getComputedStyle(document.querySelectorAll("#track .reveal-image-frame")[1]).clipPath);
+  if (second.startsWith("inset(100%")) fail("galeria: 2ª foto não foi revelada após avançar"); else ok("galeria: foto seguinte é revelada ao avançar");
+  await ctx.close();
+}
+
+// Reduced motion
+{
+  const { ctx, page, errors } = await open(390, 844, { reduced: true });
+  await page.waitForTimeout(3500);
+  const r = await page.evaluate(() => ({
+    reveal: getComputedStyle(document.querySelector(".reveal")).opacity,
+    words: [...document.querySelectorAll(".motto-text span")].every((s) => getComputedStyle(s).opacity === "1"),
+    sticky: getComputedStyle(document.querySelector(".motto")).position,
+    video: !!document.querySelector(".bg-video iframe"),
+    curtain: document.documentElement.classList.contains("show-curtain"),
+    split: !!document.querySelector(".history-text p span"),
+  }));
+  if (r.reveal !== "1" || !r.words || r.sticky !== "static" || r.video || r.curtain || r.split) fail(`reduced motion não respeitado: ${JSON.stringify(r)}`); else ok("prefers-reduced-motion: conteúdo visível, sem sticky/parallax");
+  if (errors.length) fail(`reduced motion: erros ${errors}`);
+  await ctx.close();
+}
+
+await browser.close(); server.close();
+if (failed) { console.error(`\n${failed} falha(s)`); process.exit(1); }
+console.log("\nTodos os testes de navegador passaram. Capturas em tools/test-results/");

@@ -1,0 +1,19 @@
+{
+  "name": "ronda-charrua-tools",
+  "private": true,
+  "description": "Ferramentas de build e verificação do site estático do CTG Ronda Charrua (não são publicadas).",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node check-html.mjs && node check-browser.mjs",
+    "check": "npm run build && npm test"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.10",
+    "framer-motion": "13.4.5",
+    "html-validate": "9.7.1",
+    "playwright-core": "1.55.0",
+    "react": "19.1.1",
+    "react-dom": "19.1.1"
+  }
+}
