@@ -155,6 +155,23 @@ for (const [w, h] of viewports) {
   if (!src.includes("youtube-nocookie.com/embed/-3lMd-e6sMI") || !src.includes("mute=1")) fail(`vídeo de fundo não carregou: ${src}`); else ok("vídeo de fundo da Adulta carrega sem som");
   const hidden = await page.evaluate(() => getComputedStyle(document.querySelector(".bg-video")).opacity);
   if (hidden !== "0") fail("vídeo aparece antes de o player confirmar que está tocando"); else ok("foto fica visível até o vídeo tocar");
+  // Botão de som: escondido até o vídeo tocar; ao aparecer, alterna o estado e fica abaixo do menu
+  const sound = page.locator(".hero .sound-toggle");
+  if ((await sound.count()) !== 1 || !(await sound.evaluate((b) => b.hidden))) fail("botão de som ausente ou visível antes do vídeo tocar");
+  else {
+    await sound.evaluate((b) => { b.hidden = false; });
+    await sound.click();
+    const state = await sound.evaluate((b) => ({ pressed: b.getAttribute("aria-pressed"), label: b.getAttribute("aria-label"), top: b.getBoundingClientRect().top, header: document.querySelector(".site-header").getBoundingClientRect().bottom }));
+    if (state.pressed !== "true" || !state.label.includes("Desligar")) fail(`botão de som não alterna: ${JSON.stringify(state)}`);
+    else if (state.top < state.header) fail("botão de som fica sob o menu");
+    else {
+      ok("botão de som aparece com o vídeo, alterna e fica abaixo do menu");
+      await page.evaluate(() => window.scrollTo({ top: 400, behavior: "instant" }));
+      await page.waitForTimeout(300);
+      const after = await sound.getAttribute("aria-pressed");
+      if (after !== "false") fail("som continua ligado depois que o botão some sob o menu"); else ok("som desliga quando o botão sai do alcance");
+    }
+  }
   await ctx.close();
 }
 
